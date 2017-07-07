@@ -42,9 +42,14 @@ Import-Module AzureRMCertAuthentication
   
   One the AzureRMCertAuthentication is created you just type Connect-AzureRM to connect to AzureRM without password.
 
- 
    # Creating AzureRMCertAuthentication 
-   New-AzureRMCertAuthentication
- 
+   New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription1
+   This Example will create a AzureRMCertAuthentication and export a function named: Connect-AzureRMVMSubscription1
+
    # Creating AzureRMCertAuthentication 
-   Remove-AzureRMCertAuthentication
+   New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription2
+   This Example will create a AzureRMCertAuthentication and export a function named: Connect-AzureRMVMSubscription2
+
+   # Creating AzureRMCertAuthentication 
+   Remove-AzureRMCertAuthentication -Function AzureRMVMSubscription1
+   This Example will remove a AzureRMCertAuthentication named Connect-AzureRMVMSubscription2
