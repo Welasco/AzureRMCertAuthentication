@@ -149,7 +149,7 @@ Function Connect-' + $FunctionName + '{
 ####################################################################'
     
 
-    $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append
+    $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append utf8
 
     Write-Output "Now re-open Powershell and run Connect-AzureRM to connect!"
 }
