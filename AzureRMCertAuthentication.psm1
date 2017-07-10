@@ -1,11 +1,10 @@
 <# 
  .Synopsis
-  This Module Create or Remove a AzureRMCertAuthentication.
-  Create AzureRMCertAuthentication to avoid password prompts.
+  This Module Create or Remove a service principal using self-signed certificate to avoid password prompts on Powershell.
 
  .Description
-  This Modulo will Create an AzureRmADApplication and associate a Self-Signed Certificate.
-  The main idea is to avoid multiple prompts for authentication each time you open Powershell.
+  This Modulo will Create an service principal and associate a Self-Signed Certificate.
+  The intention is to avoid multiple password prompts each time you open Powershell.
   An additional function will be exported to the current user profile to be used to connect to AzureRM without password prompt.
 
   Example of a Function that will be exported:
@@ -25,28 +24,30 @@
     }
     ####################################################################
   
-  One the AzureRMCertAuthentication is created you just type Connect-AzureRM to connect to AzureRM without password.
+  One the service principal is created you just have to type Connect-<FunctionName> each time you open the Powershell.
+  The funcion will use the Self-Signed certificate created and associated with a service principal to authenticate with no password.
 
  .Example
    # Creating AzureRMCertAuthentication 
    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription1
-   This Example will create a AzureRMCertAuthentication and export a function named: Connect-AzureRMVMSubscription1
+   This Example will create a function named: "Connect-AzureRMVMSubscription1"
 
  .Example
-   # Creating AzureRMCertAuthentication 
+   # In case you have two Azure Account (Subscritpions) you create a different function name for each Subscription.
    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription2
-   This Example will create a AzureRMCertAuthentication and export a function named: Connect-AzureRMVMSubscription2
+   This Example will create a function named: "Connect-AzureRMVMSubscription2"
 
  .Example
-   # Creating AzureRMCertAuthentication 
+   # Removing the exported function, service principal and exported funcion.
    Remove-AzureRMCertAuthentication -Function AzureRMVMSubscription1
-   This Example will remove a AzureRMCertAuthentication named Connect-AzureRMVMSubscription2
 
 # A URL to the main website for this project.
 ProjectUri = 'https://github.com/welasco/AzureRMCertAuthentication'
+Resource = https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal
 #>
 
 
+# Function used to check the current Azure login session
 Function CheckAzureSession{
     $Check = (Get-AzureRmContext).Account
     If($Check){
@@ -57,6 +58,7 @@ Function CheckAzureSession{
     }
 }
 
+# Function used to create the Self-Signed certificated
 Function CreateSelfSignedCertificate {
     Param(
         [Parameter(Mandatory=$true)]
@@ -84,6 +86,7 @@ Function CreateSelfSignedCertificate {
     return $return
 }
 
+# Function load the the Self-Signed certificate and export the KeyCredential
 Function CreateKeyCredential{
     Param(
         [Parameter(Mandatory=$true)]
@@ -97,14 +100,93 @@ Function CreateKeyCredential{
     $keyCredential.StartDate = $SelfSignedCertificate.currentDate
     $keyCredential.EndDate= $SelfSignedCertificate.endDate
     $keyCredential.KeyId = $keyId
-    #$keyCredential.Type = "AsymmetricX509Cert"
-    #$keyCredential.Usage = "Verify"
     $keyCredential.CertValue = $keyValue
 
     return $keyCredential
 }
 
+# Function to Remove the Exported Profile Function
+Function RemoveProfileFunction{
+    Param(
+        [Parameter(Mandatory=$true)]
+        [PsObject]$FunctionName
+    ) 
+    $profileFile = Get-Content $profile.CurrentUserAllHosts
+    $currentDateTime = (Get-Date).Month.ToString() + (Get-Date).Day.ToString() + (Get-Date).Year.ToString() + (Get-Date).Hour.ToString() + (Get-Date).Minute.ToString() + (Get-Date).Second.ToString()
+    $tempFile = ($profile.CurrentUserAllHosts | Split-Path) | Join-Path -ChildPath ("tempProfile" + $currentDateTime + ".txt")
+    $bkpFile = ($profile.CurrentUserAllHosts.Replace(".ps1", ("-bkp-" + $currentDateTime + ".ps1")))
+    $funcString = ("##################### Function Connect-" + $FunctionName + " #####################")
 
+    Copy-Item $profile.CurrentUserAllHosts $bkpFile
+
+    $dstLinePosition = $null
+    foreach($line in $profileFile){
+        if ($line -eq $funcString) {
+            $dstLinePosition = $line.ReadCount + 13
+        }
+        if ($dstLinePosition -ne $null) {
+            if ($line.ReadCount -le $dstLinePosition) {
+                # Don't copy the line
+            }
+            else {
+                $line | Out-File $tempFile -Append
+            }
+        }
+        else {
+            $line | Out-File $tempFile -Append
+        }
+    }
+
+    Copy-Item $tempFile $profile.CurrentUserAllHosts -Force
+}
+
+# Function to double check if should create the Service Principal using the current loging session or not
+Function MenuYesNo{
+    $title = ("You are currently using the Subscription: "+ (Get-AzureRmContext).Subscription.Name)
+    $message = "Do you want to crate a new AzureRMCertAuthentication using this subscription?"
+
+    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
+        "A new AzureRMCertAuthentication will be created using the current Subscription."
+
+    $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
+        "Stop creation process of a new AzureRMCertAuthentication."
+
+    $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
+
+    $result = $host.ui.PromptForChoice($title, $message, $options, 1) 
+
+    switch ($result)
+        {
+            0 {return $True}
+            1 {return $False}
+        }    
+}
+
+# Function Checking File Encoding
+function CheckFileEncoding {
+    if (Test-Path $profile.CurrentUserAllHosts) {
+        $objStreamReader = New-Object System.IO.StreamReader($profile.CurrentUserAllHosts, $true)
+        [char[]] $buffer = new-object char[] 3
+        $objStreamReader.Read($buffer, 0, 3) | Out-Null 
+        $encoding = $objStreamReader.CurrentEncoding.EncodingName
+        $objStreamReader.Close()
+
+        if ($encoding -contains "UTF-8") {
+            return "utf8"
+        }
+        else {
+            return "unicode"
+        }
+    }
+    else {
+        return $false
+    }
+}
+
+
+# ### Exported Module Function ###
+# This Function will create an AzureRMADApplication and associate with AzureRMADServicePrincipal
+# The Self-Signed certificated will be associated with AzureRMADApplication
 Function New-AzureRMCertAuthentication{
     Param(
         [Parameter(Mandatory=$true)]
@@ -112,11 +194,28 @@ Function New-AzureRMCertAuthentication{
     )    
     $isSession = CheckAzureSession
 
+    # Checking current session
     if ($isSession -eq $false) {
-        Add-AzureRmAccount
+        Add-AzureRmAccount -ErrorAction Stop
+    }
+    else {
+        $resultMenu = MenuYesNo
+        if($resultMenu -eq $false){
+            break
+        }
     }
 
+    #Checking if the ADApplication already exist
+    $chkADApplication = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
+    if ($chkADApplication) {
+        Write-Output ("A previous AzureRMADApplication found with Name: " + $FunctionName)
+        Write-OutPut ("Please run Remove-AzureRMCertAuthentication -FunctionName " + $FunctionName + " to remove it first.")
+        break
+    }
+
+    # Creating the Self-Signed certificate
     $SelfSignedCertificate = CreateSelfSignedCertificate -FunctionName $FunctionName
+    # Creating KeyCredential based on Self-Signed certificate
     $PSADKeyCredential = CreateKeyCredential -SelfSignedCertificate $SelfSignedCertificate
 
     # Create the Azure Active Directory Application
@@ -125,13 +224,15 @@ Function New-AzureRMCertAuthentication{
     # Create the Service Principal and connect it to the Application
     New-AzureRmADServicePrincipal -ApplicationId $azureAdApplication.ApplicationId
 
+    # We must sleep 20 seconds waiting Service Principal be created on AzureRM
     Start-Sleep -Seconds 20
 
-    # Give the Service Principal Reader access to the current subscription
+    # Give the Service Principal Owner access to the current subscription
     New-AzureRmRoleAssignment -RoleDefinitionName Owner -ServicePrincipalName $azureAdApplication.ApplicationId
 
     $SessionContext = Get-AzureRmContext
 
+    # Preparing Connect-<FunctionName> to be exported
     $ExportFunction = '
 ##################### Function Connect-' + $FunctionName + ' #####################
 Function Connect-' + $FunctionName + '{ 
@@ -148,12 +249,21 @@ Function Connect-' + $FunctionName + '{
 }
 ####################################################################'
     
+    # Exporting Connect-<FunctionName>
+    $encodingType = CheckFileEncoding
+    if ($encodingType) {
+        $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append -Encoding $encodingType
+    }
+    else {
+        $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append
+    }
+    
 
-    $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append utf8
-
-    Write-Output "Now re-open Powershell and run Connect-AzureRM to connect!"
+    Write-Output ("Now re-open Powershell and run Connect-" + $FunctionName +" to connect!")
 }
 
+# ### Exported Module Function ###
+# This Function will remove an AzureRMADApplication, AzureRMADServicePrincipal, Self-Signed Certificate and Exported Function
 Function Remove-AzureRMCertAuthentication{
     Param(
         [Parameter(Mandatory=$true)]
@@ -162,13 +272,22 @@ Function Remove-AzureRMCertAuthentication{
     try{
         $AzureRMADApp = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
         Remove-AzureRmADApplication -ObjectId $AzureRMADApp.ObjectId
-        Write-Output "Now you can safely remove the function on your Powershell Profile."
-        Write-Output 'Type: notepad $profile.CurrentUserAllHosts'
+        try {
+            Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq ("CN=" + $FunctionName + ".AzurePowershell.local") } | Remove-Item -Force
+            RemoveProfileFunction -FunctionName $FunctionName
+            Remove-Item ($profile.CurrentUserAllHosts | Split-Path | Join-Path -ChildPath ($FunctionName + ".AzurePowershell.local.pfx")) -ErrorAction SilentlyContinue -Force
+        }
+        catch {
+            Write-Output ("Failed to remove Self-Signed certificate: " + ("CN=" + $FunctionName + ".AzurePowershell.local"))
+        }
+        Write-Output "Sucessfully removed AzureRMCertAuthentication"
     }
     catch{
         Write-Output "To remove the a AzureRMCertAuthentication you must login again. Please type Login-AzureRmAccount"
     }
+
 }
 
+# Exporting Powershell Functions from this Module
 Export-ModuleMember -Function New-AzureRMCertAuthentication, Remove-AzureRMCertAuthentication
 
