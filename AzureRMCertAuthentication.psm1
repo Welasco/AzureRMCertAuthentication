@@ -138,6 +138,7 @@ Function RemoveProfileFunction{
     }
 
     Copy-Item $tempFile $profile.CurrentUserAllHosts -Force
+    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
 }
 
 # Function to double check if should create the Service Principal using the current loging session or not
@@ -161,28 +162,6 @@ Function MenuYesNo{
             1 {return $False}
         }    
 }
-
-# Function Checking File Encoding
-function CheckFileEncoding {
-    if (Test-Path $profile.CurrentUserAllHosts) {
-        $objStreamReader = New-Object System.IO.StreamReader($profile.CurrentUserAllHosts, $true)
-        [char[]] $buffer = new-object char[] 3
-        $objStreamReader.Read($buffer, 0, 3) | Out-Null 
-        $encoding = $objStreamReader.CurrentEncoding.EncodingName
-        $objStreamReader.Close()
-
-        if ($encoding -contains "UTF-8") {
-            return "utf8"
-        }
-        else {
-            return "unicode"
-        }
-    }
-    else {
-        return $false
-    }
-}
-
 
 # ### Exported Module Function ###
 # This Function will create an AzureRMADApplication and associate with AzureRMADServicePrincipal
@@ -250,14 +229,9 @@ Function Connect-' + $FunctionName + '{
 ####################################################################'
     
     # Exporting Connect-<FunctionName>
-    $encodingType = CheckFileEncoding
-    if ($encodingType) {
-        $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append -Encoding $encodingType
-    }
-    else {
-        $ExportFunction | Out-File -FilePath $profile.CurrentUserAllHosts -Append
-    }
-    
+    $profileFile = Get-Content $profile.CurrentUserAllHosts
+    $profileFile += $ExportFunction
+    $profileFile | Out-File $profile.CurrentUserAllHosts -Force
 
     Write-Output ("Now re-open Powershell and run Connect-" + $FunctionName +" to connect!")
 }
