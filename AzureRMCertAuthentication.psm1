@@ -46,6 +46,8 @@ ProjectUri = 'https://github.com/welasco/AzureRMCertAuthentication'
 Resource = https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal
 #>
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText", "")]
+param()
 
 # Function used to check the current Azure login session
 Function CheckAzureSession{
@@ -60,6 +62,7 @@ Function CheckAzureSession{
 
 # Function used to create the Self-Signed certificated
 Function CreateSelfSignedCertificate {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText", "")]
     Param(
         [Parameter(Mandatory=$true)]
         [PsObject]$FunctionName
