@@ -185,9 +185,6 @@ Function New-AzureRMCertAuthentication{
         if($resultMenu -eq $false){
             break
         }
-        else {
-            Add-AzureRmAccount -ErrorAction Stop
-        }
     }
 
     #Checking if the ADApplication already exist
