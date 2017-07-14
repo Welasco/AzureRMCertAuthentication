@@ -235,9 +235,13 @@ Function Connect-' + $FunctionName + '{
 ####################################################################'
     
     # Exporting Connect-<FunctionName>
-    $profileFile = Get-Content $profile.CurrentUserAllHosts
+    if (Test-Path $profile.CurrentUserAllHosts) {
+        $profileFile = Get-Content $profile.CurrentUserAllHosts
+    }
     $profileFile += $ExportFunction
-    $profileFile | Out-File $profile.CurrentUserAllHosts -Force
+    $profileFile | Out-File $profile.CurrentUserAllHosts -Force        
+
+
 
     Write-Output ("Now re-open Powershell and run Connect-" + $FunctionName +" to connect!")
 }
