@@ -93,17 +93,27 @@ Function CreateSelfSignedCertificate {
 Function CreateKeyCredential{
     Param(
         [Parameter(Mandatory=$true)]
-        [PsObject]$SelfSignedCertificate
+        [PsObject]$SelfSignedCertificate,
+        [PsObject]$AzureADApplication
     )
     $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate($SelfSignedCertificate.dstPath, $SelfSignedCertificate.pwd)
     $keyValue = [System.Convert]::ToBase64String($cert.GetRawCertData())
     $keyId = [guid]::NewGuid()
-    Import-Module AzureRM.Resources
-    $keyCredential = New-Object  Microsoft.Azure.Commands.Resources.Models.ActiveDirectory.PSADKeyCredential
-    $keyCredential.StartDate = $SelfSignedCertificate.currentDate
-    $keyCredential.EndDate= $SelfSignedCertificate.endDate
-    $keyCredential.KeyId = $keyId
-    $keyCredential.CertValue = $keyValue
+    #Import-Module AzureRM.Resources
+    #$keyCredential = New-Object  Microsoft.Azure.Commands.Resources.Models.ActiveDirectory.PSADKeyCredential
+    #$keyCredential = New-Object  Microsoft.Azure.Graph.RBAC.Version1_6.ActiveDirectory.PSADCredential <-- new place
+    #$keyCredential.StartDate = $SelfSignedCertificate.currentDate
+    #$keyCredential.EndDate= $SelfSignedCertificate.endDate
+    #$keyCredential.KeyId = $keyId
+    #$keyCredential.CertValue = $keyValue
+
+    try {
+        New-AzureRmADAppCredential -CertValue $keyvalue -StartDate $SelfSignedCertificate.currentDate -EndDate $SelfSignedCertificate.endDate -ApplicationId $AzureADApplication.ApplicationId.ToString()
+    }
+    catch {
+        Write-Output ("Failed to change the AzureAdApplicationCredential: " )
+    }
+    #New-AzureRmADAppCredential -CertValue $keyvalue -StartDate $SelfSignedCertificate.currentDate -EndDate $SelfSignedCertificate.endDate -ApplicationId a6d3e1c2-dcba-4d13-bcc8-9a691fb4ae8c
 
     return $keyCredential
 }
@@ -197,11 +207,12 @@ Function New-AzureRMCertAuthentication{
 
     # Creating the Self-Signed certificate
     $SelfSignedCertificate = CreateSelfSignedCertificate -FunctionName $FunctionName
-    # Creating KeyCredential based on Self-Signed certificate
-    $PSADKeyCredential = CreateKeyCredential -SelfSignedCertificate $SelfSignedCertificate
 
     # Create the Azure Active Directory Application
-    $azureAdApplication = New-AzureRmADApplication -DisplayName ($FunctionName + "-AzurePowershell-CertAuth") -HomePage ("https://" + $SelfSignedCertificate.dnsName) -IdentifierUris ("https://" + $SelfSignedCertificate.dnsName) -KeyCredentials $PSADKeyCredential
+    $azureAdApplication = New-AzureRmADApplication -DisplayName ($FunctionName + "-AzurePowershell-CertAuth") -HomePage ("https://" + $SelfSignedCertificate.dnsName) -IdentifierUris ("https://" + $SelfSignedCertificate.dnsName)
+
+    # Creating KeyCredential based on Self-Signed certificate
+    $PSADKeyCredential = CreateKeyCredential -SelfSignedCertificate $SelfSignedCertificate -AzureADApplication $azureAdApplication
 
     # Create the Service Principal and connect it to the Application
     New-AzureRmADServicePrincipal -ApplicationId $azureAdApplication.ApplicationId
