@@ -180,6 +180,53 @@ Function MenuYesNo{
 # This Function will create an AzureRMADApplication and associate with AzureRMADServicePrincipal
 # The Self-Signed certificated will be associated with AzureRMADApplication
 Function New-AzureRMCertAuthentication{
+    <# 
+    .Synopsis
+    This Module Create or Remove a service principal using self-signed certificate to avoid password prompts on Powershell.
+
+    .Description
+    This Modulo will Create an service principal and associate a Self-Signed Certificate.
+    The intention is to avoid multiple password prompts each time you open Powershell.
+    An additional function will be exported to the current user profile to be used to connect to AzureRM without password prompt.
+
+    Example of a Function that will be exported:
+
+        ##################### Function Connect-AzureRM #####################
+        Function Connect-AzureRM{ 
+            $TenantID = "' + $SessionContext.Tenant.Id + '"
+            $thumb = "' + $SelfSignedCertificate.thumb + '" 
+            $ApplicationID = [GUID]"' + $azureAdApplication.ApplicationId.Guid + '" 
+            Add-AzureRmAccount -TenantId $TenantID -ServicePrincipal -CertificateThumbprint $thumb -ApplicationId $ApplicationID
+            if($host.ui.RawUI.WindowTitle -eq "Windows PowerShell"){
+                $host.ui.RawUI.WindowTitle = "Connected to: AzureRM"
+            }
+            elseif($host.ui.RawUI.WindowTitle.contains("Connected")){
+                $host.ui.RawUI.WindowTitle = ($host.ui.RawUI.WindowTitle + " & AzureRM")
+            }
+        }
+        ####################################################################
+    
+    One the service principal is created you just have to type Connect-<FunctionName> each time you open the Powershell.
+    The funcion will use the Self-Signed certificate created and associated with a service principal to authenticate with no password.
+
+    .Example
+    # Creating AzureRMCertAuthentication 
+    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription1
+    This Example will create a function named: "Connect-AzureRMVMSubscription1"
+
+    .Example
+    # In case you have two Azure Account (Subscritpions) you create a different function name for each Subscription.
+    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription2
+    This Example will create a function named: "Connect-AzureRMVMSubscription2"
+
+    .Example
+    # Removing the exported function, service principal and exported funcion.
+    Remove-AzureRMCertAuthentication -Function AzureRMVMSubscription1
+
+    # A URL to the main website for this project.
+    ProjectUri = 'https://github.com/welasco/AzureRMCertAuthentication'
+    Resource = https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal
+    #>    
     Param(
         [Parameter(Mandatory=$true)]
         [PsObject]$FunctionName
@@ -260,6 +307,53 @@ Function Connect-' + $FunctionName + '{
 # ### Exported Module Function ###
 # This Function will remove an AzureRMADApplication, AzureRMADServicePrincipal, Self-Signed Certificate and Exported Function
 Function Remove-AzureRMCertAuthentication{
+    <# 
+    .Synopsis
+    This Module Create or Remove a service principal using self-signed certificate to avoid password prompts on Powershell.
+
+    .Description
+    This Modulo will Create an service principal and associate a Self-Signed Certificate.
+    The intention is to avoid multiple password prompts each time you open Powershell.
+    An additional function will be exported to the current user profile to be used to connect to AzureRM without password prompt.
+
+    Example of a Function that will be exported:
+
+        ##################### Function Connect-AzureRM #####################
+        Function Connect-AzureRM{ 
+            $TenantID = "' + $SessionContext.Tenant.Id + '"
+            $thumb = "' + $SelfSignedCertificate.thumb + '" 
+            $ApplicationID = [GUID]"' + $azureAdApplication.ApplicationId.Guid + '" 
+            Add-AzureRmAccount -TenantId $TenantID -ServicePrincipal -CertificateThumbprint $thumb -ApplicationId $ApplicationID
+            if($host.ui.RawUI.WindowTitle -eq "Windows PowerShell"){
+                $host.ui.RawUI.WindowTitle = "Connected to: AzureRM"
+            }
+            elseif($host.ui.RawUI.WindowTitle.contains("Connected")){
+                $host.ui.RawUI.WindowTitle = ($host.ui.RawUI.WindowTitle + " & AzureRM")
+            }
+        }
+        ####################################################################
+    
+    One the service principal is created you just have to type Connect-<FunctionName> each time you open the Powershell.
+    The funcion will use the Self-Signed certificate created and associated with a service principal to authenticate with no password.
+
+    .Example
+    # Creating AzureRMCertAuthentication 
+    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription1
+    This Example will create a function named: "Connect-AzureRMVMSubscription1"
+
+    .Example
+    # In case you have two Azure Account (Subscritpions) you create a different function name for each Subscription.
+    New-AzureRMCertAuthentication -FunctionName AzureRMVMSubscription2
+    This Example will create a function named: "Connect-AzureRMVMSubscription2"
+
+    .Example
+    # Removing the exported function, service principal and exported funcion.
+    Remove-AzureRMCertAuthentication -Function AzureRMVMSubscription1
+
+    # A URL to the main website for this project.
+    ProjectUri = 'https://github.com/welasco/AzureRMCertAuthentication'
+    Resource = https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal
+    #>      
     Param(
         [Parameter(Mandatory=$true)]
         [PsObject]$FunctionName
