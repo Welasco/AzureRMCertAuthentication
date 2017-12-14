@@ -198,13 +198,16 @@ Function New-AzureRMCertAuthentication{
     }
 
     #Checking if the ADApplication already exist
-    $chkADApplication = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
-    if ($chkADApplication) {
-        Write-Output ("A previous AzureRMADApplication found with Name: " + $FunctionName)
-        Write-OutPut ("Please run Remove-AzureRMCertAuthentication -FunctionName " + $FunctionName + " to remove it first.")
-        break
+    $chkADApplications = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
+    foreach($chkADApplication in $chkADApplications){
+        $appFullFuncName = ($FunctionName + "-AzurePowershell-CertAuth")
+        # DisplayName             : AzureRM-AzurePowershell-CertAuth
+        if ($chkADApplication.DisplayName -eq $appFullFuncName) {
+            Write-Output ("A previous AzureRMADApplication found with Name: " + $FunctionName)
+            Write-OutPut ("Please run Remove-AzureRMCertAuthentication -FunctionName " + $FunctionName + " to remove it first.")
+            break
+        }
     }
-
     # Creating the Self-Signed certificate
     $SelfSignedCertificate = CreateSelfSignedCertificate -FunctionName $FunctionName
 
@@ -262,17 +265,27 @@ Function Remove-AzureRMCertAuthentication{
         [PsObject]$FunctionName
     )     
     try{
-        $AzureRMADApp = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
-        Remove-AzureRmADApplication -ObjectId $AzureRMADApp.ObjectId
-        try {
-            Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq ("CN=" + $FunctionName + ".AzurePowershell.local") } | Remove-Item -Force
-            RemoveProfileFunction -FunctionName $FunctionName
-            Remove-Item ($profile.CurrentUserAllHosts | Split-Path | Join-Path -ChildPath ($FunctionName + ".AzurePowershell.local.pfx")) -ErrorAction SilentlyContinue -Force
+        $AzureRMADApps = Get-AzureRmADApplication -DisplayNameStartWith $FunctionName
+        foreach($AzureRMADApp in $AzureRMADApps){
+            $appFullFuncName = ($FunctionName + "-AzurePowershell-CertAuth")
+            if($AzureRMADApp.DisplayName -eq $appFullFuncName){
+                Remove-AzureRmADApplication -ObjectId $AzureRMADApp.ObjectId
+                try {
+                    Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq ("CN=" + $FunctionName + ".AzurePowershell.local") } | Remove-Item -Force
+                    if(Test-Path($profile.CurrentUserAllHosts)){
+                        RemoveProfileFunction -FunctionName $FunctionName
+                    }
+                    Remove-Item ($profile.CurrentUserAllHosts | Split-Path | Join-Path -ChildPath ($FunctionName + ".AzurePowershell.local.pfx")) -ErrorAction SilentlyContinue -Force
+                }
+                catch {
+                    Write-Output ("Failed to remove Self-Signed certificate: " + ("CN=" + $FunctionName + ".AzurePowershell.local"))
+                }
+                Write-Output "Sucessfully removed AzureRMCertAuthentication"
+            }
+            else{
+                Write-Output "Azure AD Application not found."
+            }
         }
-        catch {
-            Write-Output ("Failed to remove Self-Signed certificate: " + ("CN=" + $FunctionName + ".AzurePowershell.local"))
-        }
-        Write-Output "Sucessfully removed AzureRMCertAuthentication"
     }
     catch{
         Write-Output "To remove the a AzureRMCertAuthentication you must login again. Please type Login-AzureRmAccount"
