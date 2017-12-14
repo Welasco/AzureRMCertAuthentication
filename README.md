@@ -1,4 +1,4 @@
-# ExchangeBuild
+# AzureRMCertAuthentication
 Powershell Module to Setup a Certificate Based Authentication on AzureRM for Powershell
 
 # How to Install
